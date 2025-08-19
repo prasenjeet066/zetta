@@ -1,2 +1,0 @@
-# zetta
-Web Programing Language 
