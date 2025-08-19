@@ -1,27 +1,29 @@
-// Very small renderer: turns <tag attr="...">text{expr}</tag> into HTML string
+import { parseComponent, renderComponentAst } from './component.js';
 
 export function renderComponent(ast, props = {}) {
-  if (ast.type !== 'Component') throw new Error('Unsupported AST');
-  const html = renderJSX(ast.jsx, props);
-  return html;
-}
-
-function renderJSX(jsx, props) {
-  // Replace simple {props.foo} occurrences
-  let out = jsx.replace(/\{\s*props\.(\w+)\s*\}/g, (_, key) => escapeHtml(String(props[key] ?? '')));
-  // Replace className="..." with class="..."
-  out = out.replace(/className=/g, 'class=');
-  // Replace self-closing tags normalization (no-op here)
-  // Minimal sanitization for attributes and text is done via escapeHtml on insertions only
-  return out;
+	if (ast.type === 'Raw') {
+		const comp = parseComponent(ast.source);
+		return renderComponentAst(comp, props, defaultBuiltins());
+	}
+	if (ast.type === 'Component') {
+		return renderComponentAst(ast, props, defaultBuiltins());
+	}
+	throw new Error('Unsupported AST');
 }
 
 function escapeHtml(str) {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
+	return str
+		.replace(/&/g, '&amp;')
+		.replace(/</g, '&lt;')
+		.replace(/>/g, '&gt;')
+		.replace(/\"/g, '&quot;')
+		.replace(/'/g, '&#39;');
 }
 
+function defaultBuiltins() {
+	return {
+		upper: (s) => String(s).toUpperCase(),
+		lower: (s) => String(s).toLowerCase(),
+		join: (arr, sep = ',') => Array.isArray(arr) ? arr.join(sep) : String(arr),
+	};
+}
