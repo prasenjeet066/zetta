@@ -1,0 +1,17 @@
+{
+  "name": "sprout-js",
+  "version": "0.1.0",
+  "description": "Sprout - a tiny interpreted language implemented in JavaScript",
+  "main": "index.js",
+  "bin": {
+    "sprout": "bin/sprout"
+  },
+  "scripts": {
+    "start": "node index.js",
+    "repl": "node index.js",
+    "lint": "echo 'no linter configured'"
+  },
+  "keywords": ["language", "interpreter", "toy", "parser", "lexer"],
+  "author": "",
+  "license": "MIT"
+}
