@@ -96,6 +96,30 @@ class CallExpression extends Expression {
   toString() { return `${this.func.toString()}(${this.arguments.map(a => a.toString()).join(', ')})`; }
 }
 
+class ArrayLiteral extends Expression {
+  constructor(token, elements) { super(); this.token = token; this.elements = elements || []; }
+  tokenLiteral() { return this.token.literal; }
+  toString() { return `[${this.elements.map(e => e.toString()).join(', ')}]`; }
+}
+
+class IndexExpression extends Expression {
+  constructor(token, left, index) { super(); this.token = token; this.left = left; this.index = index; }
+  tokenLiteral() { return this.token.literal; }
+  toString() { return `(${this.left.toString()}[${this.index.toString()}])`; }
+}
+
+class HashLiteral extends Expression {
+  constructor(token, pairs) { super(); this.token = token; this.pairs = pairs || new Map(); }
+  tokenLiteral() { return this.token.literal; }
+  toString() {
+    const parts = [];
+    for (const [key, value] of this.pairs.entries()) {
+      parts.push(`${key.toString()}: ${value.toString()}`);
+    }
+    return `{${parts.join(', ')}}`;
+  }
+}
+
 module.exports = {
   Program,
   Identifier,
@@ -110,6 +134,9 @@ module.exports = {
   BlockStatement,
   IfExpression,
   FunctionLiteral,
-  CallExpression
+  CallExpression,
+  ArrayLiteral,
+  IndexExpression,
+  HashLiteral
 };
 

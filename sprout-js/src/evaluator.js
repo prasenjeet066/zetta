@@ -3,7 +3,7 @@
 const { TokenType } = require('./token');
 const AST = require('./ast');
 const { Environment, newEnclosedEnvironment } = require('./environment');
-const { IntegerObj, StringObj, BooleanObj, NullObj, ReturnValue, FunctionObj } = require('./object');
+const { IntegerObj, StringObj, BooleanObj, NullObj, ReturnValue, FunctionObj, ArrayObj, HashObj } = require('./object');
 
 const NULL = new NullObj();
 const TRUE = new BooleanObj(true);
@@ -45,6 +45,24 @@ function evalNode(node, env) {
     const fn = evalNode(node.func, env);
     const args = node.arguments.map(a => evalNode(a, env));
     return applyFunction(fn, args);
+  }
+  if (node instanceof AST.ArrayLiteral) {
+    const elements = node.elements.map(e => evalNode(e, env));
+    return new ArrayObj(elements);
+  }
+  if (node instanceof AST.IndexExpression) {
+    return evalIndexExpression(node, env);
+  }
+  if (node instanceof AST.HashLiteral) {
+    const pairs = new Map();
+    for (const [kNode, vNode] of node.pairs.entries()) {
+      const key = evalNode(kNode, env);
+      const value = evalNode(vNode, env);
+      const hashKey = hashableKey(key);
+      if (hashKey == null) continue;
+      pairs.set(hashKey, { key, value });
+    }
+    return new HashObj(pairs);
   }
   return NULL;
 }
@@ -92,6 +110,30 @@ function evalInfixExpression(operator, leftNode, rightNode, env) {
     if (left instanceof StringObj && right instanceof StringObj) return new StringObj(left.value + right.value);
   }
   return NULL;
+}
+
+function evalIndexExpression(node, env) {
+  const left = evalNode(node.left, env);
+  const index = evalNode(node.index, env);
+  if (left instanceof ArrayObj && index instanceof IntegerObj) {
+    const idx = index.value;
+    if (idx < 0 || idx >= left.elements.length) return NULL;
+    return left.elements[idx];
+  }
+  if (left instanceof HashObj) {
+    const key = hashableKey(index);
+    if (key == null) return NULL;
+    const pair = left.pairs.get(key);
+    return pair ? pair.value : NULL;
+  }
+  return NULL;
+}
+
+function hashableKey(obj) {
+  if (obj instanceof IntegerObj) return `I:${obj.value}`;
+  if (obj instanceof BooleanObj) return `B:${obj.value}`;
+  if (obj instanceof StringObj) return `S:${obj.value}`;
+  return null;
 }
 
 function evalBlockStatement(block, env) {
@@ -157,6 +199,66 @@ const builtins = {
     console.log(out.replace(/^\"|\"$/g, ''));
     return NULL;
   },
+  len: function(args) {
+    if (args.length !== 1) return NULL;
+    const arg = args[0];
+    if (arg instanceof StringObj) return new IntegerObj(arg.value.length);
+    if (arg instanceof ArrayObj) return new IntegerObj(arg.elements.length);
+    return NULL;
+  },
+  first: function(args) {
+    if (args.length !== 1) return NULL;
+    const arr = args[0];
+    if (!(arr instanceof ArrayObj)) return NULL;
+    return arr.elements[0] ?? NULL;
+  },
+  last: function(args) {
+    if (args.length !== 1) return NULL;
+    const arr = args[0];
+    if (!(arr instanceof ArrayObj)) return NULL;
+    return arr.elements[arr.elements.length - 1] ?? NULL;
+  },
+  rest: function(args) {
+    if (args.length !== 1) return NULL;
+    const arr = args[0];
+    if (!(arr instanceof ArrayObj)) return NULL;
+    if (arr.elements.length <= 1) return new ArrayObj([]);
+    return new ArrayObj(arr.elements.slice(1));
+  },
+  push: function(args) {
+    if (args.length !== 2) return NULL;
+    const arr = args[0];
+    if (!(arr instanceof ArrayObj)) return NULL;
+    const el = args[1];
+    return new ArrayObj(arr.elements.concat([el]));
+  },
+  type: function(args) {
+    if (args.length !== 1) return NULL;
+    const a = args[0];
+    if (a instanceof IntegerObj) return new StringObj('INTEGER');
+    if (a instanceof StringObj) return new StringObj('STRING');
+    if (a instanceof BooleanObj) return new StringObj('BOOLEAN');
+    if (a instanceof ArrayObj) return new StringObj('ARRAY');
+    if (a instanceof HashObj) return new StringObj('HASH');
+    if (a instanceof NullObj) return new StringObj('NULL');
+    return new StringObj('UNKNOWN');
+  },
+  keys: function(args) {
+    if (args.length !== 1) return NULL;
+    const h = args[0];
+    if (!(h instanceof HashObj)) return NULL;
+    const keys = [];
+    for (const key of h.pairs.keys()) keys.push(key);
+    return new ArrayObj(keys);
+  },
+  values: function(args) {
+    if (args.length !== 1) return NULL;
+    const h = args[0];
+    if (!(h instanceof HashObj)) return NULL;
+    const vals = [];
+    for (const pair of h.pairs.values()) vals.push(pair.value);
+    return new ArrayObj(vals);
+  }
 };
 
 module.exports = {

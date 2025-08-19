@@ -27,8 +27,16 @@ class Lexer {
   }
 
   _skipWhitespace() {
-    while (this.ch === ' ' || this.ch === '\t' || this.ch === '\n' || this.ch === '\r') {
-      this._readChar();
+    while (true) {
+      // line comments //...
+      if (this.ch === '/' && this._peekChar() === '/') {
+        while (this.ch !== '\n' && this.ch !== '\0') this._readChar();
+      }
+      if (this.ch === ' ' || this.ch === '\t' || this.ch === '\n' || this.ch === '\r') {
+        this._readChar();
+        continue;
+      }
+      break;
     }
   }
 
@@ -93,7 +101,9 @@ class Lexer {
           return tok;
         }
         tok = { type: TokenType.BANG, literal: this.ch }; this._readChar(); return tok;
-      case '/': tok = { type: TokenType.SLASH, literal: this.ch }; this._readChar(); return tok;
+      case '/':
+        // if next is /, it will be consumed by _skipWhitespace next time
+        tok = { type: TokenType.SLASH, literal: this.ch }; this._readChar(); return tok;
       case '*': tok = { type: TokenType.ASTERISK, literal: this.ch }; this._readChar(); return tok;
       case '<': tok = { type: TokenType.LT, literal: this.ch }; this._readChar(); return tok;
       case '>': tok = { type: TokenType.GT, literal: this.ch }; this._readChar(); return tok;

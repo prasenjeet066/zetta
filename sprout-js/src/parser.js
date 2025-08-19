@@ -10,7 +10,8 @@ const Precedence = {
   SUM: 4, // + -
   PRODUCT: 5, // * /
   PREFIX: 6, // -X !X
-  CALL: 7 // myFunction(X)
+  CALL: 7, // myFunction(X)
+  INDEX: 8 // arr[0]
 };
 
 const precedences = {};
@@ -23,6 +24,7 @@ precedences[TokenType.MINUS] = Precedence.SUM;
 precedences[TokenType.SLASH] = Precedence.PRODUCT;
 precedences[TokenType.ASTERISK] = Precedence.PRODUCT;
 precedences[TokenType.LPAREN] = Precedence.CALL;
+precedences[TokenType.LBRACKET] = Precedence.INDEX;
 
 class Parser {
   constructor(lexer) {
@@ -42,7 +44,9 @@ class Parser {
     this._registerPrefix(TokenType.BANG, this._parsePrefixExpression.bind(this));
     this._registerPrefix(TokenType.MINUS, this._parsePrefixExpression.bind(this));
     this._registerPrefix(TokenType.LPAREN, this._parseGroupedExpression.bind(this));
+    this._registerPrefix(TokenType.LBRACKET, this._parseArrayLiteral.bind(this));
     this._registerPrefix(TokenType.IF, this._parseIfExpression.bind(this));
+    this._registerPrefix(TokenType.LBRACE, this._parseHashLiteral.bind(this));
     this._registerPrefix(TokenType.FUNCTION, this._parseFunctionLiteral.bind(this));
 
     this._registerInfix(TokenType.PLUS, this._parseInfixExpression.bind(this));
@@ -54,6 +58,7 @@ class Parser {
     this._registerInfix(TokenType.LT, this._parseInfixExpression.bind(this));
     this._registerInfix(TokenType.GT, this._parseInfixExpression.bind(this));
     this._registerInfix(TokenType.LPAREN, this._parseCallExpression.bind(this));
+    this._registerInfix(TokenType.LBRACKET, this._parseIndexExpression.bind(this));
 
     this._nextToken();
     this._nextToken();
@@ -172,6 +177,12 @@ class Parser {
     return exp;
   }
 
+  _parseArrayLiteral() {
+    const token = this.curToken;
+    const elements = this._parseExpressionList(TokenType.RBRACKET);
+    return new AST.ArrayLiteral(token, elements);
+  }
+
   _parseIfExpression() {
     const token = this.curToken;
     if (!this._expectPeek(TokenType.LPAREN)) return null;
@@ -187,6 +198,22 @@ class Parser {
       alternative = this._parseBlockStatement();
     }
     return new AST.IfExpression(token, condition, consequence, alternative);
+  }
+
+  _parseHashLiteral() {
+    const token = this.curToken;
+    const pairs = new Map();
+    while (this.peekToken.type !== TokenType.RBRACE) {
+      this._nextToken();
+      const key = this._parseExpression(Precedence.LOWEST);
+      if (!this._expectPeek(TokenType.COLON)) return null;
+      this._nextToken();
+      const value = this._parseExpression(Precedence.LOWEST);
+      pairs.set(key, value);
+      if (this.peekToken.type !== TokenType.RBRACE && !this._expectPeek(TokenType.COMMA)) return null;
+    }
+    if (!this._expectPeek(TokenType.RBRACE)) return null;
+    return new AST.HashLiteral(token, pairs);
   }
 
   _parseBlockStatement() {
@@ -229,6 +256,14 @@ class Parser {
     const token = this.curToken;
     const args = this._parseExpressionList(TokenType.RPAREN);
     return new AST.CallExpression(token, func, args);
+  }
+
+  _parseIndexExpression(left) {
+    const token = this.curToken;
+    this._nextToken();
+    const index = this._parseExpression(Precedence.LOWEST);
+    if (!this._expectPeek(TokenType.RBRACKET)) return null;
+    return new AST.IndexExpression(token, left, index);
   }
 
   _parseExpressionList(endToken) {
