@@ -1,0 +1,12 @@
+component UserCard(props) {
+  return (
+    <card className="user-card">
+      <avatar src="{props.avatar}" alt="{props.name}" />
+      <text class="username">{props.name}</text>
+      <button>
+        Clicked 0 times
+      </button>
+    </card>
+  );
+}
+

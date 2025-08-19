@@ -1,0 +1,14 @@
+{
+  "name": "zetta-js",
+  "version": "0.1.0",
+  "description": "Zetta language prototype (components/state/JSX-like)",
+  "type": "module",
+  "bin": {
+    "zetta": "bin/zetta"
+  },
+  "scripts": {
+    "start": "node src/cli.js",
+    "run": "node src/cli.js run examples/UserCard.zetta"
+  },
+  "license": "MIT"
+}
