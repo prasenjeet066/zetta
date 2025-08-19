@@ -12,8 +12,29 @@ export function parseJSX(input) {
 export function renderJSXTree(node, env) {
   if (node.type === 'Text') return escapeHtml(node.value);
   if (node.type === 'Expr') return escapeHtml(String(evalExpression(node.ast, env)));
+  const isCustom = /^[A-Z]/.test(node.tag);
+  if (isCustom && env.components) {
+    // Build props object for custom component
+    const props = {};
+    for (const [k, v] of Object.entries(node.attrs)) {
+      if (/^on[A-Za-z]/.test(k)) continue; // strip events
+      if (v == null) continue;
+      if (v.type === 'Text') props[k] = v.value;
+      else if (v.type === 'Expr') props[k] = evalExpression(v.ast, env);
+    }
+    const childrenStr = node.children.map(c => renderJSXTree(c, env)).join('');
+    props.children = childrenStr;
+    const comp = env.components.get(node.tag);
+    if (!comp) return '';
+    // Render nested component using provided helper
+    if (typeof env.renderNested === 'function') {
+      return env.renderNested(comp, props);
+    }
+    return '';
+  }
   const attrs = Object.entries(node.attrs).map(([k, v]) => {
     if (v == null) return null;
+    if (/^on[A-Za-z]/.test(k)) return null; // strip events
     if (v.type === 'Text') return `${k}="${escapeHtml(v.value)}"`;
     if (v.type === 'Expr') return `${k}="${escapeHtml(String(evalExpression(v.ast, env)))}"`;
     return null;
@@ -38,16 +59,30 @@ function parseElement(ctx) {
     const name = readIdent(ctx);
     skipWS(ctx); expect(ctx, '='); skipWS(ctx);
     let value;
+    const isEvent = /^on[A-Za-z]/.test(name);
     if (ctx.s[ctx.i] === '"' || ctx.s[ctx.i] === '\'') {
       const quote = ctx.s[ctx.i++];
       let raw = '';
       while (ctx.s[ctx.i] !== quote) { raw += ctx.s[ctx.i++]; }
       ctx.i++; // closing quote
-      value = { type: 'Text', value: raw };
+      value = isEvent ? null : { type: 'Text', value: raw };
     } else if (ctx.s[ctx.i] === '{') {
-      value = parseExprSlot(ctx);
+      if (isEvent) {
+        // skip balanced braces without parsing expression
+        expect(ctx, '{');
+        let depth = 1;
+        while (ctx.i < ctx.s.length && depth > 0) {
+          const c2 = ctx.s[ctx.i++];
+          if (c2 === '{') depth++;
+          if (c2 === '}') depth--;
+        }
+        value = null;
+      } else {
+        value = parseExprSlot(ctx);
+      }
     } else {
-      value = { type: 'Text', value: readIdent(ctx) };
+      const identVal = readIdent(ctx);
+      value = isEvent ? null : { type: 'Text', value: identVal };
     }
     attrs[name === 'className' ? 'class' : name] = value;
     skipWS(ctx);

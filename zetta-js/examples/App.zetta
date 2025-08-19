@@ -1,0 +1,18 @@
+component Button(props) {
+  state clicked: number = 0
+  return (
+    <button className="btn" onClick={() => clicked++}>Hello {props.label}</button>
+  );
+}
+
+component UserCard(props) {
+  state count: number = 0
+  return (
+    <card className="user-card">
+      <avatar src={props.avatar} alt={props.name} />
+      <text class="username">{props.name}</text>
+      <Button label={props.name} />
+    </card>
+  );
+}
+

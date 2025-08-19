@@ -10,7 +10,7 @@ export function parseComponent(source) {
   // state lines: state name = expr
   const state = {};
   const effects = [];
-  const stateRe = /state\s+(\w+)\s*=\s*(.*)/g;
+  const stateRe = /state\s+(\w+)(?::\s*[A-Za-z0-9_\[\]| ]+)?\s*=\s*(.*)/g;
   let m;
   while ((m = stateRe.exec(body)) !== null) {
     state[m[1]] = parseExpression(m[2]);
@@ -32,6 +32,61 @@ export function renderComponentAst(ast, props = {}, builtins = {}) {
     state[k] = evalExpression(vAst, env);
   }
   env.state = state;
+  // env may receive components and renderNested via builtins
   return renderJSXTree(ast.jsxAst, env);
+}
+
+// Multi-component module parsing with brace matching
+export function parseModule(source, loadImport, baseDir = '.') {
+  const registry = new Map();
+  let i = 0;
+  const s = source;
+  const len = s.length;
+  while (i < len) {
+    const idx = s.indexOf('component', i);
+    if (idx === -1) break;
+    // ensure word boundary
+    if (idx > 0 && /[A-Za-z0-9_]/.test(s[idx - 1])) { i = idx + 9; continue; }
+    let j = idx + 'component'.length;
+    // read name
+    while (j < len && /\s/.test(s[j])) j++;
+    let name = '';
+    while (j < len && /[A-Za-z0-9_]/.test(s[j])) { name += s[j++]; }
+    while (j < len && /\s/.test(s[j])) j++;
+    if (s[j] !== '(') { i = j + 1; continue; }
+    // skip params parens
+    let paren = 0;
+    while (j < len) {
+      if (s[j] === '(') paren++;
+      else if (s[j] === ')') { paren--; if (paren === 0) { j++; break; } }
+      j++;
+    }
+    while (j < len && /\s/.test(s[j])) j++;
+    if (s[j] !== '{') { i = j + 1; continue; }
+    // capture body with brace counting
+    let k = j;
+    let brace = 0;
+    while (k < len) {
+      if (s[k] === '{') brace++;
+      else if (s[k] === '}') { brace--; if (brace === 0) { k++; break; } }
+      k++;
+    }
+    const body = s.slice(j + 1, k - 1);
+    const comp = parseComponent('component ' + name + '() {' + body + '}');
+    registry.set(name, comp);
+    i = k;
+  }
+  return { type: 'Module', components: registry };
+}
+
+export function renderModuleComponent(moduleAst, name, props = {}, builtins = {}) {
+  const comp = moduleAst.components.get(name);
+  if (!comp) throw new Error('Component not found: ' + name);
+  const withComponents = {
+    ...builtins,
+    components: moduleAst.components,
+  };
+  withComponents.renderNested = (nestedComp, nestedProps) => renderComponentAst(nestedComp, nestedProps, withComponents);
+  return renderComponentAst(comp, props, withComponents);
 }
 
