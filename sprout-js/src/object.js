@@ -11,6 +11,12 @@ class IntegerObj extends Obj {
   inspect() { return String(this.value); }
 }
 
+class FloatObj extends Obj {
+  constructor(value) { super(); this.value = value; }
+  type() { return 'FLOAT'; }
+  inspect() { return String(this.value); }
+}
+
 class StringObj extends Obj {
   constructor(value) { super(); this.value = value; }
   type() { return 'STRING'; }
@@ -61,6 +67,7 @@ class HashObj extends Obj {
 module.exports = {
   Obj,
   IntegerObj,
+  FloatObj,
   StringObj,
   BooleanObj,
   NullObj,

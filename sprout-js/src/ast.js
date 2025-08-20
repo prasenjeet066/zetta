@@ -44,6 +44,12 @@ class IntegerLiteral extends Expression {
   toString() { return String(this.value); }
 }
 
+class FloatLiteral extends Expression {
+  constructor(token, value) { super(); this.token = token; this.value = value; }
+  tokenLiteral() { return this.token.literal; }
+  toString() { return String(this.value); }
+}
+
 class StringLiteral extends Expression {
   constructor(token, value) { super(); this.token = token; this.value = value; }
   tokenLiteral() { return this.token.literal; }
@@ -127,6 +133,7 @@ module.exports = {
   ReturnStatement,
   ExpressionStatement,
   IntegerLiteral,
+  FloatLiteral,
   StringLiteral,
   BooleanLiteral,
   PrefixExpression,

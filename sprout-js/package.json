@@ -9,9 +9,20 @@
   "scripts": {
     "start": "node index.js",
     "repl": "node index.js",
-    "lint": "echo 'no linter configured'"
+    "test": "node test/run-tests.js",
+    "lint": "eslint src/",
+    "lint:fix": "eslint src/ --fix",
+    "format": "prettier --write src/",
+    "build": "echo 'No build step needed for interpreted language'"
   },
-  "keywords": ["language", "interpreter", "toy", "parser", "lexer"],
-  "author": "",
-  "license": "MIT"
+  "keywords": ["language", "interpreter", "toy", "parser", "lexer", "programming-language"],
+  "author": "Your Name",
+  "license": "MIT",
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "devDependencies": {
+    "eslint": "^8.0.0",
+    "prettier": "^2.8.0"
+  }
 }
