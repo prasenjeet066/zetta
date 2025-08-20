@@ -38,6 +38,7 @@ class Parser {
 
     this._registerPrefix(TokenType.IDENT, this._parseIdentifier.bind(this));
     this._registerPrefix(TokenType.INT, this._parseIntegerLiteral.bind(this));
+    this._registerPrefix(TokenType.FLOAT, this._parseFloatLiteral.bind(this));
     this._registerPrefix(TokenType.STRING, this._parseStringLiteral.bind(this));
     this._registerPrefix(TokenType.TRUE, this._parseBooleanLiteral.bind(this));
     this._registerPrefix(TokenType.FALSE, this._parseBooleanLiteral.bind(this));
@@ -147,6 +148,15 @@ class Parser {
       return null;
     }
     return new AST.IntegerLiteral(this.curToken, value);
+  }
+
+  _parseFloatLiteral() {
+    const value = parseFloat(this.curToken.literal);
+    if (Number.isNaN(value)) {
+      this.errors.push(`could not parse float: ${this.curToken.literal}`);
+      return null;
+    }
+    return new AST.FloatLiteral(this.curToken, value);
   }
 
   _parseStringLiteral() { return new AST.StringLiteral(this.curToken, this.curToken.literal); }

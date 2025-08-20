@@ -3,7 +3,7 @@
 const { TokenType } = require('./token');
 const AST = require('./ast');
 const { Environment, newEnclosedEnvironment } = require('./environment');
-const { IntegerObj, StringObj, BooleanObj, NullObj, ReturnValue, FunctionObj, ArrayObj, HashObj } = require('./object');
+const { IntegerObj, FloatObj, StringObj, BooleanObj, NullObj, ReturnValue, FunctionObj, ArrayObj, HashObj } = require('./object');
 
 const NULL = new NullObj();
 const TRUE = new BooleanObj(true);
@@ -22,6 +22,7 @@ function evalNode(node, env) {
   if (node instanceof AST.Program) return evalProgram(node, env);
   if (node instanceof AST.ExpressionStatement) return evalNode(node.expression, env);
   if (node instanceof AST.IntegerLiteral) return new IntegerObj(node.value);
+  if (node instanceof AST.FloatLiteral) return new FloatObj(node.value);
   if (node instanceof AST.StringLiteral) return new StringObj(node.value);
   if (node instanceof AST.BooleanLiteral) return nativeBool(node.value);
   if (node instanceof AST.PrefixExpression) return evalPrefixExpression(node.operator, node.right, env);
@@ -84,23 +85,42 @@ function evalBangOperatorExpression(right) {
 }
 
 function evalMinusPrefixOperatorExpression(right) {
-  if (!(right instanceof IntegerObj)) return NULL;
-  return new IntegerObj(-right.value);
+  if (right instanceof IntegerObj) {
+    return new IntegerObj(-right.value);
+  }
+  if (right instanceof FloatObj) {
+    return new FloatObj(-right.value);
+  }
+  return NULL;
 }
 
 function evalInfixExpression(operator, leftNode, rightNode, env) {
   const left = evalNode(leftNode, env);
   const right = evalNode(rightNode, env);
-  if (left instanceof IntegerObj && right instanceof IntegerObj) {
+  // Handle numeric operations (integers and floats)
+  if ((left instanceof IntegerObj || left instanceof FloatObj) && 
+      (right instanceof IntegerObj || right instanceof FloatObj)) {
+    const leftVal = left.value;
+    const rightVal = right.value;
+    const isFloat = left instanceof FloatObj || right instanceof FloatObj;
+    
     switch (operator) {
-      case '+': return new IntegerObj(left.value + right.value);
-      case '-': return new IntegerObj(left.value - right.value);
-      case '*': return new IntegerObj(left.value * right.value);
-      case '/': return new IntegerObj(Math.trunc(left.value / right.value));
-      case '<': return nativeBool(left.value < right.value);
-      case '>': return nativeBool(left.value > right.value);
-      case '==': return nativeBool(left.value === right.value);
-      case '!=': return nativeBool(left.value !== right.value);
+      case '+': 
+        const sum = leftVal + rightVal;
+        return isFloat ? new FloatObj(sum) : new IntegerObj(sum);
+      case '-': 
+        const diff = leftVal - rightVal;
+        return isFloat ? new FloatObj(diff) : new IntegerObj(diff);
+      case '*': 
+        const product = leftVal * rightVal;
+        return isFloat ? new FloatObj(product) : new IntegerObj(product);
+      case '/': 
+        const quotient = leftVal / rightVal;
+        return isFloat ? new FloatObj(quotient) : new IntegerObj(Math.trunc(quotient));
+      case '<': return nativeBool(leftVal < rightVal);
+      case '>': return nativeBool(leftVal > rightVal);
+      case '==': return nativeBool(leftVal === rightVal);
+      case '!=': return nativeBool(leftVal !== rightVal);
       default: return NULL;
     }
   }
@@ -115,8 +135,8 @@ function evalInfixExpression(operator, leftNode, rightNode, env) {
 function evalIndexExpression(node, env) {
   const left = evalNode(node.left, env);
   const index = evalNode(node.index, env);
-  if (left instanceof ArrayObj && index instanceof IntegerObj) {
-    const idx = index.value;
+  if (left instanceof ArrayObj && (index instanceof IntegerObj || index instanceof FloatObj)) {
+    const idx = Math.floor(index.value);
     if (idx < 0 || idx >= left.elements.length) return NULL;
     return left.elements[idx];
   }
@@ -131,6 +151,7 @@ function evalIndexExpression(node, env) {
 
 function hashableKey(obj) {
   if (obj instanceof IntegerObj) return `I:${obj.value}`;
+  if (obj instanceof FloatObj) return `F:${obj.value}`;
   if (obj instanceof BooleanObj) return `B:${obj.value}`;
   if (obj instanceof StringObj) return `S:${obj.value}`;
   return null;
@@ -157,6 +178,7 @@ function isTruthy(obj) {
   if (obj === TRUE) return true;
   if (obj === FALSE) return false;
   if (obj instanceof IntegerObj) return obj.value !== 0;
+  if (obj instanceof FloatObj) return obj.value !== 0;
   if (obj instanceof StringObj) return obj.value.length > 0;
   return true;
 }
@@ -164,8 +186,6 @@ function isTruthy(obj) {
 function evalIdentifier(ident, env) {
   const val = env.get(ident.value);
   if (val !== undefined) return val;
-  const builtin = builtins[ident.value];
-  if (builtin) return builtin;
   return NULL;
 }
 
@@ -175,6 +195,9 @@ function applyFunction(fn, args) {
     const evaluated = evalNode(fn.body, extendedEnv);
     if (evaluated instanceof ReturnValue) return evaluated.value;
     return evaluated;
+  }
+  if (fn && fn.type === 'BUILTIN' && fn.fn) {
+    return fn.fn(args);
   }
   if (typeof fn === 'function') {
     return fn(args);
